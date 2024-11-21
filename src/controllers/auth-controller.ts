@@ -1,8 +1,9 @@
-import { userRegisterDataType } from "../dtos/auth-dto";
+import { userRegisterDataType, userSignInDataType } from "../dtos/auth-dto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { driver } from "../utils/neo4jdriver";
+import { formatDateTime } from "../utils/helpers";
 
 dotenv.config();
 
@@ -61,18 +62,6 @@ export const registerUser = async (
       }
     );
 
-    const formatDateTime = (datetime: any) => {
-      return new Date(
-        datetime.year.low,
-        datetime.month.low - 1,
-        datetime.day.low,
-        datetime.hour.low,
-        datetime.minute.low,
-        datetime.second.low,
-        datetime.nanosecond.low / 1e6
-      ).toISOString();
-    };
-
     const user = result.records[0].get("u").properties;
     user.birthDate = formatDateTime(user.birthDate);
     user.createdAt = formatDateTime(user.createdAt);
@@ -87,5 +76,37 @@ export const registerUser = async (
     return { error: error.message, status: false };
   } finally {
     await session.close();
+  }
+};
+
+export const signInUser = async (signInPayload: userSignInDataType) => {
+  const session = driver.session();
+  try {
+    const { email, password } = signInPayload;
+
+    const result = await session.run(
+      "MATCH (u:User {email: $email}) RETURN u",
+      { email }
+    );
+
+    if (result.records.length === 0) {
+      return { error: "Invalid credentials", status: false };
+    }
+
+    const user = result.records[0].get("u").properties;
+    user.birthDate = formatDateTime(user.birthDate);
+    user.createdAt = formatDateTime(user.createdAt);
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      return { error: "Invalid credentials", status: false };
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "");
+    return { token, user: { ...user, password: undefined }, status: true };
+  } catch (error: any) {
+    return { error: error.message, status: false };
+  } finally {
+    session.close();
   }
 };

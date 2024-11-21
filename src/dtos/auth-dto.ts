@@ -12,4 +12,11 @@ export const userRegisterData = z.object({
   interests: z.array(z.string()),
 });
 
+export const userSignInData = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+export type userSignInDataType = z.infer<typeof userSignInData>;
+
 export type userRegisterDataType = z.infer<typeof userRegisterData>;
