@@ -1,3 +1,11 @@
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "";
+
+interface UserData {
+  id: string;
+}
+
 export function formatDateTime(datetime: any) {
   return new Date(
     datetime.year.low,
@@ -14,4 +22,8 @@ export function geApproxUserAgeInYears(birthDate: any) {
   const birth = new Date(birthDate);
   const today = new Date();
   return today.getFullYear() - birth.getFullYear();
+}
+
+export function verifyAuthToken(token: string) {
+  return jwt.verify(token, JWT_SECRET) as UserData;
 }

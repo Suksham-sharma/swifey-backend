@@ -1,11 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "";
-
-interface UserData {
-  id: string;
-}
+import { verifyAuthToken } from "../utils/helpers";
 
 export const authenticateToken = (
   req: Request,
@@ -20,7 +14,7 @@ export const authenticateToken = (
     return;
   }
 
-  const userInfo = jwt.verify(token, JWT_SECRET) as UserData;
+  const userInfo = verifyAuthToken(token);
 
   if (!userInfo.id) {
     res.status(401).json({ error: "Invalid token" });

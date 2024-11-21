@@ -1,7 +1,10 @@
 import WebSocket from "ws";
 import http from "http";
 import ChatService from "./chatservice";
+import jwt from "jsonwebtoken";
+import { verifyAuthToken } from "../utils/helpers";
 
+export const UserInfo = new Map<string, WebSocket>();
 class WebSocketServer {
   private wss: WebSocket.Server;
   private chatService: ChatService;
@@ -14,9 +17,14 @@ class WebSocketServer {
 
   private initializeWebSocketHandlers() {
     this.wss.on("connection", (ws: WebSocket, req: http.IncomingMessage) => {
-      // Extract user ID from authentication mechanism
-      // This is a placeholder - replace with your actual auth logic
-      const userId = this.extractUserIdFromRequest(req);
+      const userId = this.extractUserIdFromRequest(req, ws);
+
+      if (!userId) {
+        ws.close();
+        return;
+      }
+
+      UserInfo.set(userId, ws);
 
       ws.on("message", async (message: string) => {
         try {
@@ -52,13 +60,35 @@ class WebSocketServer {
     });
   }
 
-  private extractUserIdFromRequest(req: http.IncomingMessage): string {
-    // TODO: Implement proper authentication
-    // This is a placeholder - you'd typically:
-    // 1. Check for authentication token in query params or headers
-    // 2. Validate the token
-    // 3. Extract user ID from the token
-    return (req.headers["x-user-id"] as string) || "";
+  private extractUserIdFromRequest(req: http.IncomingMessage, ws: WebSocket) {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+
+    if (!token) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Access token required",
+        })
+      );
+      ws.close();
+      return;
+    }
+
+    const userInfo = verifyAuthToken(token);
+
+    if (!userInfo.id) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Invalid token",
+        })
+      );
+      ws.close();
+      return;
+    }
+
+    return userInfo.id;
   }
 
   private async handleSendMessage(parsedMessage: any, senderId: string) {

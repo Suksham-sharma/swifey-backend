@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import WebSocket, { Server } from "ws";
+import { UserInfo } from "./wsServer";
 
 const prisma = new PrismaClient();
 
@@ -48,7 +49,7 @@ class ChatService {
       return newMessage;
     });
 
-    this.sendMessageToUser(message);
+    this.sendMessageToUser(message, conversationId);
 
     return message;
   }
@@ -113,12 +114,26 @@ class ChatService {
     });
   }
 
-  private sendMessageToUser(message: any) {
-    this.wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
+  private async sendMessageToUser(message: any, conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { user1Id: true, user2Id: true },
     });
+
+    if (!conversation) {
+      console.error("Conversation not found");
+      return;
+    }
+
+    const participants = [conversation.user1Id, conversation.user2Id];
+
+    const recipients = participants.filter(
+      (userId) => userId !== message.senderId
+    );
+
+    const wsClient = UserInfo.get(recipients[0]);
+
+    wsClient?.send(JSON.stringify(message));
   }
 }
 
