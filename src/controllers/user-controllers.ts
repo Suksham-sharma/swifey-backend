@@ -39,11 +39,11 @@ export const getPotentialMatches = async (userId: string) => {
       { userId: userId }
     );
 
-    const matches = result.records.map((record) =>
-      record.get("potentialMatch")
+    const matches = result.records.map(
+      (record: { get: (arg0: string) => any }) => record.get("potentialMatch")
     );
 
-    matches.forEach((match) => {
+    matches.forEach((match: { birthDate: any; age: number }) => {
       const birthDate = formatDateTime(match.birthDate);
       match.age = geApproxUserAgeInYears(birthDate);
       delete match.birthDate;
@@ -72,9 +72,11 @@ export const getAllUsers = async () => {
             `
     );
 
-    const users = result.records.map((record) => record.get("user"));
+    const users = result.records.map((record: { get: (arg0: string) => any }) =>
+      record.get("user")
+    );
 
-    users.forEach((user) => {
+    users.forEach((user: { birthDate: any; age: number }) => {
       const birthDate = formatDateTime(user.birthDate);
       user.age = geApproxUserAgeInYears(birthDate);
       delete user.birthDate;
@@ -101,8 +103,10 @@ export const likeUser = async (userId: string, potentialId: string) => {
             WHERE mutual IS NOT NULL
 
             FOREACH (x IN CASE WHEN mutual IS NOT NULL THEN [1] ELSE [] END |
-                MERGE (u1)-[:MATCHED]->(u2)
-                MERGE (u2)-[:MATCHED {createdAt: datetime()}]->(u1)
+                MERGE (u1)-[m1:MATCHED]->(u2)
+                ON CREATE SET m1.createdAt = datetime()
+                MERGE (u2)-[m2:MATCHED]->(u1)
+                ON CREATE SET m2.createdAt = datetime()
             )
 
           RETURN {
@@ -134,6 +138,37 @@ export const likeUser = async (userId: string, potentialId: string) => {
   } finally {
     session.close();
   }
+};
+
+export const cancelMatch = async (userId: string, matchId: string) => {
+  const session = driver.session();
+  try {
+    const result = await session.run(
+      `
+            MATCH (u1:User {id: $currentUserId})
+            MATCH (u2:User {id: $matchId})
+
+            MATCH (u1)-[l1:LIKED]->(u2)
+            DELETE l1
+            MATCH (u2)-[l2:LIKED]->(u1)
+            DELETE l2
+
+            MATCH (u1)-[m1:MATCHED]->(u2)
+            DELETE m1
+
+            MATCH (u2)-[m2:MATCHED]->(u1)
+            DELETE m2
+
+            RETURN {
+                matchCancelled: u2.id
+            } as result
+            `,
+      {
+        currentUserId: userId,
+        matchId: matchId,
+      }
+    );
+  } catch (error: any) {}
 };
 
 export const dislikeUser = async (userId: string, potentialId: string) => {
@@ -183,8 +218,10 @@ export const getUserMatches = async (userId: string) => {
       { userId: userId }
     );
 
-    const matches = result.records.map((record) => record.get("match"));
-    matches.forEach((match) => {
+    const matches = result.records.map(
+      (record: { get: (arg0: string) => any }) => record.get("match")
+    );
+    matches.forEach((match: { birthDate: any; age: number }) => {
       const birthDate = formatDateTime(match.birthDate);
       match.age = geApproxUserAgeInYears(birthDate);
       delete match.birthDate;

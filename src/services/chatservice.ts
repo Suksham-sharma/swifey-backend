@@ -1,16 +1,13 @@
 import { PrismaClient } from "@prisma/client";
-import WebSocket, { Server } from "ws";
 import { UserInfo } from "./wsServer";
 
 const prisma = new PrismaClient();
 
 class ChatService {
   private prisma: PrismaClient;
-  private wss: Server;
 
-  constructor(wss: WebSocket.Server) {
+  constructor() {
     this.prisma = prisma;
-    this.wss = wss;
   }
 
   async createOrGetConversation(user1Id: string, user2Id: string) {

@@ -11,7 +11,7 @@ class WebSocketServer {
 
   constructor(server: http.Server) {
     this.wss = new WebSocket.Server({ server });
-    this.chatService = new ChatService(this.wss);
+    this.chatService = new ChatService();
     this.initializeWebSocketHandlers();
   }
 
